@@ -28,7 +28,7 @@ io.on('connection', (socket: Socket) => {
     });
 
     socket.on('update-element', (data) => {
-        socket.broadcast.emit('receive-update-element', data);
+        socket.broadcast.emit('update-element', data);
     });
 
     socket.on('disconnect', () => {
@@ -41,3 +41,8 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Servidor WebSocket con TypeScript funcionando 🚀');
 });
 
+// Iniciar servidor
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log("Servidor corriendo en http://localhost:${PORT}");
+});

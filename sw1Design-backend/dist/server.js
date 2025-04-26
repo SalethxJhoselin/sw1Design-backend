@@ -27,7 +27,7 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('move-element', data);
     });
     socket.on('update-element', (data) => {
-        socket.broadcast.emit('receive-update-element', data);
+        socket.broadcast.emit('update-element', data);
     });
     socket.on('disconnect', () => {
         console.log('🔴 Usuario desconectado:', socket.id);
@@ -36,4 +36,9 @@ io.on('connection', (socket) => {
 // Ruta básica
 app.get('/', (req, res) => {
     res.send('Servidor WebSocket con TypeScript funcionando 🚀');
+});
+// Iniciar servidor
+const PORT = 3000;
+server.listen(PORT, () => {
+    console.log("Servidor corriendo en http://localhost:${PORT}");
 });
