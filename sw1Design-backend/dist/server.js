@@ -1,24 +1,76 @@
 import express from 'express';
 import { createServer } from 'http';
 import { nanoid } from 'nanoid';
+import fetch from 'node-fetch';
 import { Server } from 'socket.io';
 import pool, { initializeDatabase } from './db.js';
+const app = express();
+app.use(express.json({ limit: '10mb' }));
+async function generateCodeHandler(req, res) {
+    const { image } = req.body;
+    if (!image)
+        return res.status(400).json({ error: "No se recibió la imagen" });
+    const apiKey = "AIzaSyCm-PTVPeOm-Np_3QUQE324e8b0Gnu45GQ";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
+    const prompt = `
+        Eres un asistente de desarrollo frontend. A partir de esta imagen del diseño, genera el código HTML, CSS y TypeScript separados. Sé estructurado y profesional.
+        1. HTML: estructura base del diseño.
+        2. CSS: estilos necesarios.
+        3. TypeScript: lógica de componentes si aplica.
+        Responde claramente en tres bloques separados.
+    `;
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: "image/png",
+                                    data: image,
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }),
+        });
+        const data = (await response.json());
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No se generó código.";
+        const htmlMatch = text.match(/HTML:(.*?)CSS:/s);
+        const cssMatch = text.match(/CSS:(.*?)TS:/s);
+        const tsMatch = text.match(/TS:(.*)/s);
+        res.json({
+            html: htmlMatch?.[1]?.trim() || "No HTML generado.",
+            css: cssMatch?.[1]?.trim() || "No CSS generado.",
+            ts: tsMatch?.[1]?.trim() || "No TS generado.",
+        });
+    }
+    catch (err) {
+        console.error("❌ Error al llamar a Gemini API:", err);
+        res.status(500).json({ error: "Error al generar código con Gemini." });
+    }
+}
+app.post('/generate-code', generateCodeHandler);
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    pingTimeout: 60000
+});
 async function startServer() {
-    // Al inicio del archivo
     const sessionChanges = new Map(); // projectId => {elements, metadata}
     try {
         // 1. Primero inicializa la base de datos
         await initializeDatabase();
         console.log('🛢️  Base de datos lista');
-        const app = express();
-        const server = createServer(app);
-        const io = new Server(server, {
-            cors: {
-                origin: "*",
-                methods: ["GET", "POST"]
-            },
-            pingTimeout: 60000
-        });
+        /*****************************************************Aqui no************************** */
         // Middleware para conexiones
         io.use((socket, next) => {
             console.log('🔄 Conexión entrante:', socket.id);
@@ -135,6 +187,7 @@ async function startServer() {
                 }
             });
         });
+        /*****************desde aqui si********************************************************* */
         const PORT = process.env.PORT || 3000;
         server.listen(PORT, () => {
             console.log(`🚀 Servidor en http://localhost:${PORT}`);
