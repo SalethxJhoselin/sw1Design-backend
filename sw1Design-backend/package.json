@@ -1,19 +1,23 @@
 {
   "name": "sw1design-backend",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "ts-node-dev --respawn server.ts"
+    "dev": "ts-node-dev --respawn src/server.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/pg": "^8.11.14",
     "express": "^5.1.0",
+    "nanoid": "^5.1.5",
+    "pg": "^8.15.6",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
