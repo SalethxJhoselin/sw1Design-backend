@@ -15,7 +15,10 @@
   "description": "",
   "dependencies": {
     "@types/pg": "^8.11.14",
+    "archiver": "^7.0.1",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
+    "google-auth-library": "^9.15.1",
     "nanoid": "^5.1.5",
     "node-fetch": "^3.3.2",
     "pg": "^8.15.6",

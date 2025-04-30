@@ -1,46 +1,56 @@
+import cors from 'cors';
 import express from 'express';
+import { GoogleAuth } from 'google-auth-library';
 import { createServer } from 'http';
 import { nanoid } from 'nanoid';
-import fetch from 'node-fetch';
 import { Server } from 'socket.io';
 import pool, { initializeDatabase } from './db.js';
 const app = express();
 app.use(express.json({ limit: '10mb' }));
-async function generateCodeHandler(req, res) {
-    const { image } = req.body;
-    if (!image)
-        return res.status(400).json({ error: "No se recibió la imagen" });
-    const apiKey = "AIzaSyCm-PTVPeOm-Np_3QUQE324e8b0Gnu45GQ";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
-    const prompt = `
-        Eres un asistente de desarrollo frontend. A partir de esta imagen del diseño, genera el código HTML, CSS y TypeScript separados. Sé estructurado y profesional.
-        1. HTML: estructura base del diseño.
-        2. CSS: estilos necesarios.
-        3. TypeScript: lógica de componentes si aplica.
-        Responde claramente en tres bloques separados.
-    `;
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        parts: [
-                            { text: prompt },
-                            {
-                                inlineData: {
-                                    mimeType: "image/png",
-                                    data: image,
-                                },
-                            },
-                        ],
+app.use(cors());
+const auth = new GoogleAuth({
+    keyFile: './gemini-canvas-458322-02beb64d493a.json', // asegúrate que esta ruta sea correcta
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+});
+async function generarConVision(imageBase64) {
+    const client = await auth.getClient();
+    const accessToken = await client.getAccessToken();
+    const endpoint = 'https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-canvas-458322/locations/us-central1/publishers/google/models/gemini-1.0-pro-vision:predict';
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken.token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            instances: [
+                {
+                    prompt: 'Eres un asistente frontend. Genera el HTML, CSS y TypeScript de esta interfaz. Divide claramente en tres secciones.',
+                    image: {
+                        bytesBase64Encoded: imageBase64,
+                        mimeType: 'image/png',
                     },
-                ],
-            }),
-        });
-        const data = (await response.json());
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No se generó código.";
+                },
+            ],
+            parameters: {
+                temperature: 0.2,
+            },
+        }),
+    });
+    const result = await response.json();
+    return result;
+}
+const generateCodeHandler = async (req, res) => {
+    const { image } = req.body;
+    if (!image) {
+        res.status(400).json({ error: "No se recibió la imagen" });
+        return;
+    }
+    try {
+        const result = await generarConVision(image);
+        // Aquí puedes parsear `result` como lo necesites.
+        console.log("✅ Respuesta de Gemini con Vision:", result);
+        const text = result.predictions?.[0]?.content || 'No se generó código.';
         const htmlMatch = text.match(/HTML:(.*?)CSS:/s);
         const cssMatch = text.match(/CSS:(.*?)TS:/s);
         const tsMatch = text.match(/TS:(.*)/s);
@@ -51,10 +61,10 @@ async function generateCodeHandler(req, res) {
         });
     }
     catch (err) {
-        console.error("❌ Error al llamar a Gemini API:", err);
-        res.status(500).json({ error: "Error al generar código con Gemini." });
+        console.error("❌ Error al generar código con Vision:", err);
+        res.status(500).json({ error: "Error al generar código con Gemini Vision." });
     }
-}
+};
 app.post('/generate-code', generateCodeHandler);
 const server = createServer(app);
 const io = new Server(server, {
